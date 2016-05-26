@@ -1,33 +1,35 @@
-'use strict';
-
 var express = require('express');
-var routes = require('./app/routes/index.js');
-var mongoose = require('mongoose');
-var passport = require('passport');
-var session = require('express-session');
-
 var app = express();
-require('dotenv').load();
-require('./app/config/passport')(passport);
+var months = ["January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
 
-mongoose.connect(process.env.MONGO_URI);
+String.prototype.replaceAll = function(search, replacement) {
+    var target = this;
+    return target.replace(new RegExp(search, 'g'), replacement);
+};
 
-app.use('/controllers', express.static(process.cwd() + '/app/controllers'));
-app.use('/public', express.static(process.cwd() + '/public'));
-app.use('/common', express.static(process.cwd() + '/app/common'));
-
-app.use(session({
-	secret: 'secretClementine',
-	resave: false,
-	saveUninitialized: true
-}));
-
-app.use(passport.initialize());
-app.use(passport.session());
-
-routes(app, passport);
-
-var port = process.env.PORT || 8080;
-app.listen(port,  function () {
-	console.log('Node.js listening on port ' + port + '...');
+app.get('*', function(req, res) {
+	var date = req.url.substr(1);
+	if(date == ""){
+		res.end("<h1>Time microservice</h1><p>You can send a unix timestamp or a natural data. Example: </p><code>/1450137600<br>/December%2015,%202015</code><br><p>That will return: </p><code>{<br>\"unix\": 1450137600,<br>\"natural\": \"December 15, 2015\"<br>}</code>");
+		return;
+	}
+	
+	date = decodeURI(date).toString();
+	if(!date.match("[a-zA-Z]+"))
+		date = new Date(parseInt(date) * 1000);
+	else
+		date = new Date(date);
+	
+	var ret = {"unix" : null, "natural": null};
+	if(!isNaN(date)){
+		ret["unix"] = date.getTime() / 1000;
+		ret["natural"] = months[date.getMonth()]+" "+date.getDate()+", "+date.getFullYear();
+	}
+	
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(ret));
 });
+
+app.listen(process.env.PORT, process.env.IP);
